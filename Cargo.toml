@@ -10,14 +10,18 @@ categories = ["cryptography"]
 keywords = ["halo", "proofs", "zkp", "zkSNARKs", "sha3", "keccak"]
 
 [dependencies]
-midnight-proofs = { git = "https://github.com/midnightntwrk/midnight-zk", version = "0.5.1", default-features = false, features = [
+midnight-proofs = { git = "https://github.com/Veridise/midnight-zk", version = "0.5.1", default-features = false, features = [
   "bits",
-  "cost-estimator",
+  # "cost-estimator",
   "circuit-params",
 ] }
 num-bigint = { version = "0.4" }
 rand = "0.8"
 blake2b_simd = "1.0.3"
+
+# extraction deps 
+mdnt-support = { version = "0.2", optional = true }
+mdnt-support-macros = { version = "0.2", optional = true, features = ["extractor-derive"] }
 
 [dev-dependencies]
 criterion = "0.3"
@@ -27,3 +31,12 @@ sha3 = "0.10.0"
 [[bench]]
 name = "sha3_preimage"
 harness = false
+
+[features]
+default = ["extraction"] # Default while writing the extraction support
+extraction = [
+  "mdnt-support",
+  "mdnt-support-macros",
+  "midnight-proofs/extraction", 
+  "midnight-proofs/region-groups"
+]

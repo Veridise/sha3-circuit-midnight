@@ -326,10 +326,58 @@ pub struct PackedConfig {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "extraction",
+    derive(mdnt_support_macros::NoChipArgs),
+    support_module(mdnt_support)
+)]
 /// The chip implementation with packed arithmetic
 pub struct PackedChip<F: PrimeField> {
     config: PackedConfig,
     _marker: PhantomData<F>,
+}
+
+#[cfg(feature = "extraction")]
+impl<F, L> mdnt_support::circuit::CircuitInitialization<L> for PackedChip<F>
+where
+    F: PrimeField,
+    L: Layouter<F>,
+{
+    type Config = PackedConfig;
+
+    type Args = ();
+
+    type ConfigCols = (
+        Column<Fixed>,
+        [Column<Advice>; PACKED_ADVICE_COLS],
+        [Column<Fixed>; PACKED_FIXED_COLS],
+        [TableColumn; PACKED_TABLE_COLS],
+    );
+
+    type CS = ConstraintSystem<F>;
+
+    type Error = Error;
+
+    fn new_chip(config: &Self::Config, _: Self::Args) -> Self {
+        Self::new(config)
+    }
+
+    fn configure_circuit(
+        meta: &mut Self::CS,
+        (constant_column, advice_columns, fixed_columns, table_columns): &Self::ConfigCols,
+    ) -> Self::Config {
+        Self::configure(
+            meta,
+            *constant_column,
+            *advice_columns,
+            *fixed_columns,
+            *table_columns,
+        )
+    }
+
+    fn load_chip(&self, layouter: &mut L, _: &Self::Config) -> Result<(), Self::Error> {
+        self.load_table(layouter)
+    }
 }
 
 impl<F: PrimeField> Chip<F> for PackedChip<F> {

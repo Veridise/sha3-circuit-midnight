@@ -180,6 +180,11 @@ where
 
 /// A wrapper gadget that computs a SHA3_256 digest.
 #[derive(Debug)]
+#[cfg_attr(
+    feature = "extraction",
+    derive(mdnt_support_macros::NoChipArgs),
+    support_module(mdnt_support)
+)]
 pub struct Sha3_256<F, KeccakF>
 where
     F: PrimeField,
@@ -187,6 +192,40 @@ where
 {
     chip: KeccakF,
     phantom: PhantomData<F>,
+}
+
+#[cfg(feature = "extraction")]
+impl<F, KeccakF, L, Config> mdnt_support::circuit::CircuitInitialization<L> for Sha3_256<F, KeccakF>
+where
+    F: PrimeField,
+    KeccakF: Keccackf1600Instructions<F>
+        + mdnt_support::circuit::CircuitInitialization<L, Config = Config>
+        + midnight_proofs::circuit::Chip<F, Config = Config>,
+    L: Layouter<F>,
+    KeccakF::Loaded: Default,
+    Config: Clone + std::fmt::Debug,
+{
+    type Config = Config;
+
+    type Args = KeccakF::Args;
+
+    type ConfigCols = KeccakF::ConfigCols;
+
+    type CS = KeccakF::CS;
+
+    type Error = KeccakF::Error;
+
+    fn new_chip(config: &Self::Config, args: Self::Args) -> Self {
+        Self::new(KeccakF::new_chip(config, args))
+    }
+
+    fn configure_circuit(meta: &mut Self::CS, columns: &Self::ConfigCols) -> Self::Config {
+        KeccakF::configure_circuit(meta, columns)
+    }
+
+    fn load_chip(&self, layouter: &mut L, config: &Self::Config) -> Result<(), Self::Error> {
+        self.chip.load_chip(layouter, config)
+    }
 }
 
 impl<F, KeccakF> Sha3_256<F, KeccakF>
