@@ -92,6 +92,34 @@ impl<F: PrimeField> AssignedKeccakState<F> {
     }
 }
 
+#[cfg(feature = "extraction")]
+impl<F: PrimeField> mdnt_support::cells::CellReprSize for AssignedKeccakState<F> {
+    const SIZE: usize = <[[AssignedSpreadBits<F>; KECCAK_WIDTH]; KECCAK_WIDTH]>::SIZE;
+}
+
+#[cfg(feature = "extraction")]
+impl<F: PrimeField, C, L>
+    mdnt_support::cells::store::StoreIntoCells<F, C, midnight_proofs::ExtractionSupport, L>
+    for AssignedKeccakState<F>
+{
+    fn store(
+        self,
+        ctx: &mut mdnt_support::cells::ctx::OCtx<F, midnight_proofs::ExtractionSupport>,
+        chip: &C,
+        layouter: &mut impl mdnt_support::cells::ctx::LayoutAdaptor<
+            F,
+            midnight_proofs::ExtractionSupport,
+            Adaptee = L,
+        >,
+        injected_ir: &mut mdnt_support::circuit::injected::InjectedIR<
+            midnight_proofs::circuit::RegionIndex,
+            midnight_proofs::plonk::Expression<F>,
+        >,
+    ) -> Result<(), midnight_proofs::plonk::Error> {
+        self.inner.store(ctx, chip, layouter, injected_ir)
+    }
+}
+
 /// Struct representing the c values. The values are computed as
 /// c[i] = a[i][0] + ... + a[i][4]. We also keep the left rotation of
 /// cs for computing the D values later.
