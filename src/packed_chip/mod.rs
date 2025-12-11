@@ -665,6 +665,38 @@ pub struct AbsorbedBlock<F: PrimeField> {
     assigned_zero: AssignedSpreadBits<F>,
 }
 
+#[cfg(feature = "extraction")]
+impl<F: PrimeField> mdnt_support::cells::CellReprSize for AbsorbedBlock<F> {
+    const SIZE: usize = <[AssignedDenseBits<F>; KECCAK_ABSORB_BYTES] as mdnt_support::cells::CellReprSize>::SIZE
+        + <[AssignedSpreadBits<F>; KECCAK_ABSORB_LANES]as mdnt_support::cells::CellReprSize>::SIZE
+        + <AssignedSpreadBits<F> as mdnt_support::cells::CellReprSize>::SIZE;
+}
+
+#[cfg(feature = "extraction")]
+impl<F: PrimeField, L, C>
+    mdnt_support::cells::store::StoreIntoCells<F, C, midnight_proofs::ExtractionSupport, L>
+    for AbsorbedBlock<F>
+{
+    fn store(
+        self,
+        ctx: &mut mdnt_support::cells::ctx::OCtx<F, midnight_proofs::ExtractionSupport>,
+        chip: &C,
+        layouter: &mut impl mdnt_support::cells::ctx::LayoutAdaptor<
+            F,
+            midnight_proofs::ExtractionSupport,
+            Adaptee = L,
+        >,
+        injected_ir: &mut mdnt_support::circuit::injected::InjectedIR<
+            midnight_proofs::circuit::RegionIndex,
+            midnight_proofs::plonk::Expression<F>,
+        >,
+    ) -> Result<(), Error> {
+        self.dense_bytes.store(ctx, chip, layouter, injected_ir)?;
+        self.spread_lanes.store(ctx, chip, layouter, injected_ir)?;
+        self.assigned_zero.store(ctx, chip, layouter, injected_ir)
+    }
+}
+
 impl<F: PrimeField> From<AbsorbedBlock<F>> for Vec<AssignedDenseBits<F>> {
     fn from(block: AbsorbedBlock<F>) -> Self {
         block.dense_bytes.into()

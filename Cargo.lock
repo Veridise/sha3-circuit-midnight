@@ -415,6 +415,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "haloumi-core"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "167ac2ba2df12e4479303c32fc84a324bff276b91c90384ac80e7ef04e5d66ba"
+dependencies = [
+ "ff",
+ "thiserror",
+]
+
+[[package]]
 name = "haloumi-ir"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -422,7 +432,7 @@ checksum = "360606c01dfab7e7dcc3d741d4416aa9566eba85d8319ec48bf08380c7c58f17"
 dependencies = [
  "eqv",
  "ff",
- "haloumi-core",
+ "haloumi-core 0.1.0",
  "haloumi-ir-base",
  "haloumi-lowering",
  "log",
@@ -437,7 +447,7 @@ checksum = "7a548544d2fc0b5f4674ec4bc0e366286fbbdba06b406c99fb2aec5e04e08ed4"
 dependencies = [
  "eqv",
  "ff",
- "haloumi-core",
+ "haloumi-core 0.1.0",
  "internment",
  "log",
  "num-bigint",
@@ -450,7 +460,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fed51db6cc199b33577a3a71320a95c826998e6fce600ba40a5bba82ef6528fc"
 dependencies = [
  "ff",
- "haloumi-core",
+ "haloumi-core 0.1.0",
  "haloumi-ir-base",
  "thiserror",
 ]
@@ -553,9 +563,9 @@ checksum = "03e704bfa829dddf7c2cd9faf1c126be3af58661f266b37949a9001620c9ea4a"
 
 [[package]]
 name = "mdnt-support"
-version = "0.2.5"
+version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4eb18fef53ce2885d6bd954377346900f05280728fb95cabe18be75da7ccbfb6"
+checksum = "eb6535528fd9a6ddd552265f57f69b4deef8b673010b4563327e4f49c103906c"
 dependencies = [
  "ff",
  "haloumi-ir",
@@ -587,7 +597,7 @@ checksum = "f52b00d39961fc5b2736ea853c9cc86238e165017a493d1d5c8eac6bdc4cc273"
 [[package]]
 name = "midnight-curves"
 version = "0.1.1"
-source = "git+https://github.com/Veridise/midnight-zk#0d63a4d4f7b19f01a45a5332409571540e17eec5"
+source = "git+https://github.com/Veridise/midnight-zk#2b759661d05b74af3aaf8041e38e165bb876a6d4"
 dependencies = [
  "bitvec",
  "blst",
@@ -606,14 +616,14 @@ dependencies = [
 [[package]]
 name = "midnight-proofs"
 version = "0.5.1"
-source = "git+https://github.com/Veridise/midnight-zk#0d63a4d4f7b19f01a45a5332409571540e17eec5"
+source = "git+https://github.com/Veridise/midnight-zk#2b759661d05b74af3aaf8041e38e165bb876a6d4"
 dependencies = [
  "blake2b_simd",
  "ff",
  "getrandom",
  "group",
  "halo2curves",
- "haloumi-core",
+ "haloumi-core 0.2.0",
  "mdnt-groups-support",
  "mdnt-support",
  "midnight-curves",
