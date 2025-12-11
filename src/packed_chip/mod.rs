@@ -868,15 +868,13 @@ impl<F: PrimeField> Keccackf1600Instructions<F> for PackedChip<F> {
         layouter: &mut impl Layouter<F>,
         state: &Self::State,
     ) -> Result<Self::State, Error> {
-        layouter.assign_region(
-            || "keccakf permutation region",
-            |mut region| {
-                // apply the rounds
-                (0..KECCAK_NUM_ROUNDS).try_fold(state.clone(), |old_state, round| {
-                    self.keccakf_round(&mut region, round, &old_state, None)
-                })
-            },
-        )
+        // This function has been modified s.t. each keccakf round is in a separate region.
+        // The original version had all the rounds in one region.
+        // See commit f8a436dcc329aed450a35dbc1192ebaf684d5e24 for the original.
+
+        (0..KECCAK_NUM_ROUNDS).try_fold(state.clone(), |old_state, round| {
+            self.keccakf_group(layouter, &old_state, round)
+        })
     }
 
     fn keccakf_and_absorb(
@@ -885,18 +883,31 @@ impl<F: PrimeField> Keccackf1600Instructions<F> for PackedChip<F> {
         state: &Self::State,
         ms: Option<&Self::AbsorbedBlock>,
     ) -> Result<Self::State, Error> {
-        layouter.assign_region(
-            || "keccakf permutation with absorb region",
-            |mut region| {
-                // apply all rounds except the last
-                let state = (0..KECCAK_NUM_ROUNDS - 1)
-                    .try_fold(state.clone(), |old_state, round| {
-                        self.keccakf_round(&mut region, round, &old_state, None)
-                    })?;
+        // This function has been modified s.t. each keccakf round is in a separate region.
+        // The original version had all the rounds in one region.
+        // See commit f8a436dcc329aed450a35dbc1192ebaf684d5e24 for the original.
 
-                // apply the last round and absorb
-                let ms = ms.map(|block| &block.spread_lanes);
-                self.keccakf_round(&mut region, KECCAK_NUM_ROUNDS - 1, &state, ms)
+        // apply all rounds except the last
+        let state = (0..KECCAK_NUM_ROUNDS - 1).try_fold(state.clone(), |old_state, round| {
+            self.keccakf_group(layouter, &old_state, round)
+        })?;
+        layouter.group(
+            || "keccakf_round_with_ms",
+            midnight_proofs::default_group_key!(),
+            |layouter, group| {
+                layouter.assign_region(
+                    || "keccakf permutation with absorb region",
+                    |mut region| {
+                        group.annotate_as_input(&state)?;
+                        // apply the last round and absorb
+                        let ms = ms.map(|block| &block.spread_lanes);
+                        let new_state =
+                            self.keccakf_round(&mut region, KECCAK_NUM_ROUNDS - 1, &state, ms)?;
+
+                        group.annotate_as_output(&new_state)?;
+                        Ok(new_state)
+                    },
+                )
             },
         )
     }
@@ -923,5 +934,28 @@ impl<F: PrimeField> Keccackf1600Instructions<F> for PackedChip<F> {
         let digest = result.iter().flat_map(|v| v.to_vec()).collect::<Vec<_>>().try_into().unwrap();
 
         Ok(digest)
+    }
+}
+
+impl<F: PrimeField> PackedChip<F> {
+    fn keccakf_group(
+        &self,
+        layouter: &mut impl Layouter<F>,
+        old_state: &AssignedKeccakState<F>,
+        round: usize,
+    ) -> Result<AssignedKeccakState<F>, Error> {
+        layouter.group(
+            || "keccakf_round",
+            midnight_proofs::default_group_key!(),
+            |layouter, group| {
+                group.annotate_as_input(old_state)?;
+                let new_state = layouter.assign_region(
+                    || "keccakf permutation region",
+                    |mut region| self.keccakf_round(&mut region, round, old_state, None),
+                )?;
+                group.annotate_as_output(&new_state)?;
+                Ok(new_state)
+            },
+        )
     }
 }

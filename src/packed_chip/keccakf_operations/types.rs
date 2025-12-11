@@ -1,6 +1,7 @@
 //! Types and operation that are usefull for computing in-circuit the Keccak-f
 //! permutation
 
+use mdnt_groups_support::DecomposeIn;
 #[cfg(feature = "extraction")]
 use mdnt_support::{
     cells::{
@@ -17,7 +18,10 @@ use midnight_proofs::{
     plonk::{Error, Expression},
     ExtractionSupport,
 };
-use midnight_proofs::{circuit::Value, halo2curves::ff::PrimeField};
+use midnight_proofs::{
+    circuit::{Cell, Value},
+    halo2curves::ff::PrimeField,
+};
 
 use crate::{
     constants::{KECCAK_ABSORB_LANES, KECCAK_NUM_LANES, KECCAK_WIDTH},
@@ -57,6 +61,12 @@ impl KeccakState {
 #[derive(Clone, Debug)]
 pub struct AssignedKeccakState<F: PrimeField> {
     pub(crate) inner: [[AssignedSpreadBits<F>; KECCAK_WIDTH]; KECCAK_WIDTH],
+}
+
+impl<F: PrimeField> DecomposeIn<Cell> for AssignedKeccakState<F> {
+    fn cells(&self) -> impl IntoIterator<Item = Cell> {
+        self.inner.cells()
+    }
 }
 
 impl<F: PrimeField> AssignedKeccakState<F> {

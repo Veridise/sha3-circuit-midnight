@@ -972,6 +972,7 @@ version = "0.1.0"
 dependencies = [
  "blake2b_simd",
  "criterion",
+ "mdnt-groups-support",
  "mdnt-support",
  "mdnt-support-macros",
  "midnight-proofs",

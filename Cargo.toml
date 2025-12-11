@@ -21,7 +21,8 @@ blake2b_simd = "1.0.3"
 
 # extraction deps 
 mdnt-support = { version = "0.2", optional = true }
-mdnt-support-macros = { version = "0.2", optional = true, features = ["extractor-derive"] }
+mdnt-support-macros = { version = "0.2" }
+mdnt-groups-support = "0.2"
 
 [dev-dependencies]
 criterion = "0.3"
@@ -36,7 +37,7 @@ harness = false
 default = ["extraction"] # Default while writing the extraction support
 extraction = [
   "mdnt-support",
-  "mdnt-support-macros",
+  "mdnt-support-macros/extractor-derive",
   "midnight-proofs/extraction", 
   "midnight-proofs/region-groups"
 ]
