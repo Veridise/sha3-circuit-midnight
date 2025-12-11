@@ -1,4 +1,8 @@
-use midnight_proofs::{circuit::Region, halo2curves::ff::PrimeField, plonk::Error};
+use midnight_proofs::{
+    circuit::{Layouter, Region},
+    halo2curves::ff::PrimeField,
+    plonk::Error,
+};
 
 use self::types::AssignedKeccakState;
 use super::{utils::AssignedSpreadBits, PackedChip};
@@ -53,25 +57,29 @@ impl<F: PrimeField> PackedChip<F> {
     /// recieves message lanes to absorb *after* the final round.
     pub(super) fn keccakf_round(
         &self,
-        region: &mut Region<'_, F>,
+        layouter: &mut impl Layouter<F>,
         round: usize,
         state: &AssignedKeccakState<F>,
         ms: Option<&[AssignedSpreadBits<F>; KECCAK_ABSORB_LANES]>,
     ) -> Result<AssignedKeccakState<F>, Error> {
+        // This function has been modified s.t. each keccakf round is in a separate region.
+        // The original version had all the rounds in one region.
+        // See commit f8a436dcc329aed450a35dbc1192ebaf684d5e24 for the original.
+
         // apply the theta and rho steps and also the iota step of the previous round if
         // it is not the first round
-        let state = self.compute_theta_rho(region, round, state)?;
+        let state = self.compute_theta_rho(layouter, round, state)?;
 
         // apply the pi round which permutes the lanes. This performs no operation in
         // circuit.
         let state = state.compute_pi();
 
         // apply the chi step (with no absorbtion)
-        let state = self.compute_chi(region, round, &state, ms)?;
+        let state = self.compute_chi(layouter, round, &state, ms)?;
 
         // if it is the last round, also compute the final iota step
         if round == KECCAK_NUM_ROUNDS - 1 {
-            self.compute_last_iota(region, &state)
+            self.compute_last_iota(layouter, &state)
         } else {
             Ok(state)
         }

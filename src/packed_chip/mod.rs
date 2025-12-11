@@ -895,19 +895,13 @@ impl<F: PrimeField> Keccackf1600Instructions<F> for PackedChip<F> {
             || "keccakf_round_with_ms",
             midnight_proofs::default_group_key!(),
             |layouter, group| {
-                layouter.assign_region(
-                    || "keccakf permutation with absorb region",
-                    |mut region| {
-                        group.annotate_as_input(&state)?;
-                        // apply the last round and absorb
-                        let ms = ms.map(|block| &block.spread_lanes);
-                        let new_state =
-                            self.keccakf_round(&mut region, KECCAK_NUM_ROUNDS - 1, &state, ms)?;
+                group.annotate_as_input(&state)?;
+                // apply the last round and absorb
+                let ms = ms.map(|block| &block.spread_lanes);
+                let new_state = self.keccakf_round(layouter, KECCAK_NUM_ROUNDS - 1, &state, ms)?;
 
-                        group.annotate_as_output(&new_state)?;
-                        Ok(new_state)
-                    },
-                )
+                group.annotate_as_output(&new_state)?;
+                Ok(new_state)
             },
         )
     }
@@ -949,10 +943,7 @@ impl<F: PrimeField> PackedChip<F> {
             midnight_proofs::default_group_key!(),
             |layouter, group| {
                 group.annotate_as_input(old_state)?;
-                let new_state = layouter.assign_region(
-                    || "keccakf permutation region",
-                    |mut region| self.keccakf_round(&mut region, round, old_state, None),
-                )?;
+                let new_state = self.keccakf_round(layouter, round, old_state, None)?;
                 group.annotate_as_output(&new_state)?;
                 Ok(new_state)
             },

@@ -20,7 +20,7 @@
 //! A[i][j] --> 2 * (A[i][j] xor M[i + 5*j] + (spread(1..1) - A[i+1][j] +
 //! A[i+2][j]).
 use midnight_proofs::{
-    circuit::{Chip, Region},
+    circuit::{Chip, Layouter, Region},
     halo2curves::ff::PrimeField,
     plonk::Error,
 };
@@ -71,104 +71,131 @@ impl<F: PrimeField> PackedChip<F> {
     /// |--------|---------|---------|----------|---------|-----------|
     pub(super) fn compute_chi(
         &self,
-        region: &mut Region<'_, F>,
+        layouter: &mut impl Layouter<F>,
         round: usize,
         assigned_state: &AssignedKeccakState<F>,
         ms: Option<&[AssignedSpreadBits<F>; KECCAK_ABSORB_LANES]>,
     ) -> Result<AssignedKeccakState<F>, Error> {
-        // compute the region offset
-        let chi_offset = round * ROWS_PER_ROUND + COMPUTE_CHI_OFFSET_START;
+        layouter.group(
+            || "compute_chi",
+            midnight_proofs::default_group_key!(),
+            |layouter, group| {
+                group.annotate_as_input(assigned_state)?;
+                if let Some(ms) = ms {
+                    group.annotate_as_input(ms)?;
+                }
+                layouter.assign_region(
+                    || "compute chi",
+                    |mut region| {
+                        // compute the region offset
+                        let chi_offset = round * ROWS_PER_ROUND + COMPUTE_CHI_OFFSET_START;
 
-        let mut new_state_with_error = assigned_state.value().compute_chi_with_error();
-        if let Some(ms) = ms {
-            // sanity check: absorb on last round only!
-            debug_assert!(round == KECCAK_NUM_ROUNDS - 1);
-            let ms = ms.iter().map(|m| m.value().cloned()).collect::<Vec<_>>();
-            new_state_with_error = new_state_with_error.absorb_with_error(&ms.try_into().unwrap())
-        }
+                        let mut new_state_with_error =
+                            assigned_state.value().compute_chi_with_error();
+                        if let Some(ms) = ms {
+                            // sanity check: absorb on last round only!
+                            debug_assert!(round == KECCAK_NUM_ROUNDS - 1);
+                            let ms = ms.iter().map(|m| m.value().cloned()).collect::<Vec<_>>();
+                            new_state_with_error =
+                                new_state_with_error.absorb_with_error(&ms.try_into().unwrap())
+                        }
 
-        // The layout looks like this:
-        //
-        // | dc_res  |  adv0   |  adv1    |  acc      |   limbs   |
-        // |---------|---------|----------|-----------|-----------|
-        // |  ai,jh  |   X     |    X     | acc0      |    ...    |
-        // |  ai,jm  |  ai,j   |   M/0    | acc1      |    ...    |
-        // |  ai,jl  | a_i+1,j | a_i+2,j  | a_i,j_err |    ...    |
-        //
-        // We need to:
-        //  1. assign bootstrap a_i,j with error
-        //  2. copy constraint the cells of adv0, adv1
-        //  3. apply the q_chi gate to further constraint a_i,j_err
+                        // The layout looks like this:
+                        //
+                        // | dc_res  |  adv0   |  adv1    |  acc      |   limbs   |
+                        // |---------|---------|----------|-----------|-----------|
+                        // |  ai,jh  |   X     |    X     | acc0      |    ...    |
+                        // |  ai,jm  |  ai,j   |   M/0    | acc1      |    ...    |
+                        // |  ai,jl  | a_i+1,j | a_i+2,j  | a_i,j_err |    ...    |
+                        //
+                        // We need to:
+                        //  1. assign bootstrap a_i,j with error
+                        //  2. copy constraint the cells of adv0, adv1
+                        //  3. apply the q_chi gate to further constraint a_i,j_err
 
-        let assigned_state_lanes = (0..KECCAK_NUM_LANES)
-            .map(|k| {
-                let (i, j) = (k / KECCAK_WIDTH, k % KECCAK_WIDTH);
-                let lane = new_state_with_error.inner[i][j].clone();
+                        let assigned_state_lanes = (0..KECCAK_NUM_LANES)
+                            .map(|k| {
+                                let (i, j) = (k / KECCAK_WIDTH, k % KECCAK_WIDTH);
+                                let lane = new_state_with_error.inner[i][j].clone();
 
-                //  3. apply the q_chi gate to further constraint aij_err
-                self.config().lc_subconfig.q_chi.enable(region, chi_offset + 3 * k + 1)?;
+                                //  3. apply the q_chi gate to further constraint aij_err
+                                self.config()
+                                    .lc_subconfig
+                                    .q_chi
+                                    .enable(&mut region, chi_offset + 3 * k + 1)?;
 
-                //  1. assign bootstrap a_i,j with error
-                self.assign_bootstrap3(region, chi_offset + 3 * k, &lane, 0, BPart::M)
-            })
-            .collect::<Result<Vec<_>, Error>>()?;
+                                //  1. assign bootstrap a_i,j with error
+                                self.assign_bootstrap3(
+                                    &mut region,
+                                    chi_offset + 3 * k,
+                                    &lane,
+                                    0,
+                                    BPart::M,
+                                )
+                            })
+                            .collect::<Result<Vec<_>, Error>>()?;
 
-        //  2. copy constraint the cells of adv0, adv1
-        (0..KECCAK_NUM_LANES).try_for_each(|k| {
-            let (i, j) = (k / KECCAK_WIDTH, k % KECCAK_WIDTH);
-            assigned_state.inner[i][j].copy_advice(
-                || format!("copy old state element {}, {}", i, j),
-                region,
-                self.config().lc_subconfig.advice[0],
-                chi_offset + 3 * k + 1,
-            )?;
-            assigned_state.inner[(i + 1) % KECCAK_WIDTH][j].copy_advice(
-                || {
-                    format!(
-                        "copy old state element for negation {}, {}",
-                        (i + 1) % KECCAK_WIDTH,
-                        j
-                    )
-                },
-                region,
-                self.config().lc_subconfig.advice[0],
-                chi_offset + 3 * k + 2,
-            )?;
-            assigned_state.inner[(i + 2) % KECCAK_WIDTH][j].copy_advice(
-                || {
-                    format!(
-                        "copy old state element for and op {}, {}",
-                        (i + 2) % KECCAK_WIDTH,
-                        j
-                    )
-                },
-                region,
-                self.config().lc_subconfig.advice[1],
-                chi_offset + 3 * k + 2,
-            )?;
-            // absorbed message or zero
-            if ms.is_some() && i + 5 * j < KECCAK_ABSORB_LANES {
-                ms.unwrap()[i + 5 * j].copy_advice(
-                    || format!("copy message {} for absorb", i + 5 * j),
-                    region,
-                    self.config().lc_subconfig.advice[1],
-                    chi_offset + 3 * k + 1,
-                )?;
-            } else {
-                region.assign_advice_from_constant(
-                    || "assigning 0 in the absorbed message cell",
-                    self.config().lc_subconfig.advice[1],
-                    chi_offset + 3 * k + 1,
-                    SpreadBits::zero(),
-                )?;
-            }
-            Ok::<(), Error>(())
-        })?;
+                        //  2. copy constraint the cells of adv0, adv1
+                        (0..KECCAK_NUM_LANES).try_for_each(|k| {
+                            let (i, j) = (k / KECCAK_WIDTH, k % KECCAK_WIDTH);
+                            assigned_state.inner[i][j].copy_advice(
+                                || format!("copy old state element {}, {}", i, j),
+                                &mut region,
+                                self.config().lc_subconfig.advice[0],
+                                chi_offset + 3 * k + 1,
+                            )?;
+                            assigned_state.inner[(i + 1) % KECCAK_WIDTH][j].copy_advice(
+                                || {
+                                    format!(
+                                        "copy old state element for negation {}, {}",
+                                        (i + 1) % KECCAK_WIDTH,
+                                        j
+                                    )
+                                },
+                                &mut region,
+                                self.config().lc_subconfig.advice[0],
+                                chi_offset + 3 * k + 2,
+                            )?;
+                            assigned_state.inner[(i + 2) % KECCAK_WIDTH][j].copy_advice(
+                                || {
+                                    format!(
+                                        "copy old state element for and op {}, {}",
+                                        (i + 2) % KECCAK_WIDTH,
+                                        j
+                                    )
+                                },
+                                &mut region,
+                                self.config().lc_subconfig.advice[1],
+                                chi_offset + 3 * k + 2,
+                            )?;
+                            // absorbed message or zero
+                            if ms.is_some() && i + 5 * j < KECCAK_ABSORB_LANES {
+                                ms.unwrap()[i + 5 * j].copy_advice(
+                                    || format!("copy message {} for absorb", i + 5 * j),
+                                    &mut region,
+                                    self.config().lc_subconfig.advice[1],
+                                    chi_offset + 3 * k + 1,
+                                )?;
+                            } else {
+                                region.assign_advice_from_constant(
+                                    || "assigning 0 in the absorbed message cell",
+                                    self.config().lc_subconfig.advice[1],
+                                    chi_offset + 3 * k + 1,
+                                    SpreadBits::zero(),
+                                )?;
+                            }
+                            Ok::<(), Error>(())
+                        })?;
 
-        // create the state to return
-        let assigned_state =
-            AssignedKeccakState::from_lanes(&assigned_state_lanes.try_into().unwrap());
-
-        Ok(assigned_state)
+                        // create the state to return
+                        let assigned_state = AssignedKeccakState::from_lanes(
+                            &assigned_state_lanes.try_into().unwrap(),
+                        );
+                        group.annotate_as_output(&assigned_state)?;
+                        Ok(assigned_state)
+                    },
+                )
+            },
+        )
     }
 }
