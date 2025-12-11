@@ -10,6 +10,18 @@ mod utils;
 use std::marker::PhantomData;
 
 use keccakf_operations::KECCAK_ROWS_PER_PERMUTATION;
+#[cfg(feature = "extraction")]
+use mdnt_support::{
+    cells::{
+        ctx::{ICtx, LayoutAdaptor, OCtx},
+        load::LoadFromCells,
+        store::StoreIntoCells,
+        CellReprSize,
+    },
+    circuit::injected::InjectedIR,
+};
+#[cfg(feature = "extraction")]
+use midnight_proofs::{circuit::RegionIndex, plonk::Expression, ExtractionSupport};
 use midnight_proofs::{
     circuit::{Chip, Layouter, Value},
     halo2curves::ff::PrimeField,
@@ -666,30 +678,36 @@ pub struct AbsorbedBlock<F: PrimeField> {
 }
 
 #[cfg(feature = "extraction")]
-impl<F: PrimeField> mdnt_support::cells::CellReprSize for AbsorbedBlock<F> {
-    const SIZE: usize = <[AssignedDenseBits<F>; KECCAK_ABSORB_BYTES] as mdnt_support::cells::CellReprSize>::SIZE
-        + <[AssignedSpreadBits<F>; KECCAK_ABSORB_LANES]as mdnt_support::cells::CellReprSize>::SIZE
-        + <AssignedSpreadBits<F> as mdnt_support::cells::CellReprSize>::SIZE;
+impl<F: PrimeField> CellReprSize for AbsorbedBlock<F> {
+    const SIZE: usize = <[AssignedDenseBits<F>; KECCAK_ABSORB_BYTES] as CellReprSize>::SIZE
+        + <[AssignedSpreadBits<F>; KECCAK_ABSORB_LANES] as CellReprSize>::SIZE
+        + <AssignedSpreadBits<F> as CellReprSize>::SIZE;
 }
 
 #[cfg(feature = "extraction")]
-impl<F: PrimeField, L, C>
-    mdnt_support::cells::store::StoreIntoCells<F, C, midnight_proofs::ExtractionSupport, L>
-    for AbsorbedBlock<F>
-{
+impl<F: PrimeField, L, C> LoadFromCells<F, C, ExtractionSupport, L> for AbsorbedBlock<F> {
+    fn load(
+        ctx: &mut ICtx<F, ExtractionSupport>,
+        chip: &C,
+        layouter: &mut impl LayoutAdaptor<F, ExtractionSupport, Adaptee = L>,
+        injected_ir: &mut InjectedIR<RegionIndex, Expression<F>>,
+    ) -> Result<Self, Error> {
+        Ok(Self {
+            dense_bytes: ctx.load(chip, layouter, injected_ir)?,
+            spread_lanes: ctx.load(chip, layouter, injected_ir)?,
+            assigned_zero: ctx.load(chip, layouter, injected_ir)?,
+        })
+    }
+}
+
+#[cfg(feature = "extraction")]
+impl<F: PrimeField, L, C> StoreIntoCells<F, C, ExtractionSupport, L> for AbsorbedBlock<F> {
     fn store(
         self,
-        ctx: &mut mdnt_support::cells::ctx::OCtx<F, midnight_proofs::ExtractionSupport>,
+        ctx: &mut OCtx<F, ExtractionSupport>,
         chip: &C,
-        layouter: &mut impl mdnt_support::cells::ctx::LayoutAdaptor<
-            F,
-            midnight_proofs::ExtractionSupport,
-            Adaptee = L,
-        >,
-        injected_ir: &mut mdnt_support::circuit::injected::InjectedIR<
-            midnight_proofs::circuit::RegionIndex,
-            midnight_proofs::plonk::Expression<F>,
-        >,
+        layouter: &mut impl LayoutAdaptor<F, ExtractionSupport, Adaptee = L>,
+        injected_ir: &mut InjectedIR<RegionIndex, Expression<F>>,
     ) -> Result<(), Error> {
         self.dense_bytes.store(ctx, chip, layouter, injected_ir)?;
         self.spread_lanes.store(ctx, chip, layouter, injected_ir)?;
