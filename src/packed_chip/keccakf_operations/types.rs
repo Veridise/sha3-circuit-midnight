@@ -1,6 +1,22 @@
 //! Types and operation that are usefull for computing in-circuit the Keccak-f
 //! permutation
 
+#[cfg(feature = "extraction")]
+use mdnt_support::{
+    cells::{
+        ctx::{ICtx, LayoutAdaptor, OCtx},
+        load::LoadFromCells,
+        store::StoreIntoCells,
+        CellReprSize,
+    },
+    circuit::injected::InjectedIR,
+};
+#[cfg(feature = "extraction")]
+use midnight_proofs::{
+    circuit::RegionIndex,
+    plonk::{Error, Expression},
+    ExtractionSupport,
+};
 use midnight_proofs::{circuit::Value, halo2curves::ff::PrimeField};
 
 use crate::{
@@ -93,29 +109,33 @@ impl<F: PrimeField> AssignedKeccakState<F> {
 }
 
 #[cfg(feature = "extraction")]
-impl<F: PrimeField> mdnt_support::cells::CellReprSize for AssignedKeccakState<F> {
+impl<F: PrimeField> CellReprSize for AssignedKeccakState<F> {
     const SIZE: usize = <[[AssignedSpreadBits<F>; KECCAK_WIDTH]; KECCAK_WIDTH]>::SIZE;
 }
 
 #[cfg(feature = "extraction")]
-impl<F: PrimeField, C, L>
-    mdnt_support::cells::store::StoreIntoCells<F, C, midnight_proofs::ExtractionSupport, L>
-    for AssignedKeccakState<F>
-{
+impl<F: PrimeField, C, L> LoadFromCells<F, C, ExtractionSupport, L> for AssignedKeccakState<F> {
+    fn load(
+        ctx: &mut ICtx<F, ExtractionSupport>,
+        chip: &C,
+        layouter: &mut impl LayoutAdaptor<F, ExtractionSupport, Adaptee = L>,
+        injected_ir: &mut InjectedIR<RegionIndex, Expression<F>>,
+    ) -> Result<Self, Error> {
+        Ok(Self {
+            inner: ctx.load(chip, layouter, injected_ir)?,
+        })
+    }
+}
+
+#[cfg(feature = "extraction")]
+impl<F: PrimeField, C, L> StoreIntoCells<F, C, ExtractionSupport, L> for AssignedKeccakState<F> {
     fn store(
         self,
-        ctx: &mut mdnt_support::cells::ctx::OCtx<F, midnight_proofs::ExtractionSupport>,
+        ctx: &mut OCtx<F, ExtractionSupport>,
         chip: &C,
-        layouter: &mut impl mdnt_support::cells::ctx::LayoutAdaptor<
-            F,
-            midnight_proofs::ExtractionSupport,
-            Adaptee = L,
-        >,
-        injected_ir: &mut mdnt_support::circuit::injected::InjectedIR<
-            midnight_proofs::circuit::RegionIndex,
-            midnight_proofs::plonk::Expression<F>,
-        >,
-    ) -> Result<(), midnight_proofs::plonk::Error> {
+        layouter: &mut impl LayoutAdaptor<F, ExtractionSupport, Adaptee = L>,
+        injected_ir: &mut InjectedIR<RegionIndex, Expression<F>>,
+    ) -> Result<(), Error> {
         self.inner.store(ctx, chip, layouter, injected_ir)
     }
 }
