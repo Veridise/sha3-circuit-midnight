@@ -355,10 +355,14 @@ where
     F: PrimeField,
     L: Layouter<F>,
 {
+    // Type that is generated from the ConstraintSystem, usually the Chip's config.
     type Config = PackedConfig;
 
+    // Any external arguments the chip may need. If the chip does not have any then
+    // a 0-tuple is sufficient.
     type Args = ();
 
+    // Any type that is part of the configuration that could be potentially shared with other chips.
     type ConfigCols = (
         Column<Fixed>,
         [Column<Advice>; PACKED_ADVICE_COLS],
@@ -366,14 +370,18 @@ where
         [TableColumn; PACKED_TABLE_COLS],
     );
 
+    // These two types are required because mdnt-support does not have a dependency on any
+    // halo2 library. We need to declare what types are used as ConstraintSystem and as Error.
+    // Usually these will be the types `<halo2-crate>::plonk::{ConstraintSystem, Error}`.
     type CS = ConstraintSystem<F>;
-
     type Error = Error;
 
+    /// Initializes a new chip with the given config and arguments, if any.
     fn new_chip(config: &Self::Config, _: Self::Args) -> Self {
         Self::new(config)
     }
 
+    /// Creates a new configuration.
     fn configure_circuit(
         meta: &mut Self::CS,
         (constant_column, advice_columns, fixed_columns, table_columns): &Self::ConfigCols,
@@ -387,6 +395,8 @@ where
         )
     }
 
+    /// Performs any required loading, such as lookup tables.
+    /// This method is called by the extractor after the harness' method has been executed.
     fn load_chip(&self, layouter: &mut L, _: &Self::Config) -> Result<(), Self::Error> {
         self.load_table(layouter)
     }
