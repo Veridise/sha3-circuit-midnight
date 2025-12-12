@@ -66,27 +66,22 @@ impl<F: PrimeField> PackedChip<F> {
         // The original version had all the rounds in one region.
         // See commit f8a436dcc329aed450a35dbc1192ebaf684d5e24 for the original.
 
-        layouter.assign_region(
-            || format!("keccakf round {round}"),
-            |mut region| {
-                // apply the theta and rho steps and also the iota step of the previous round if
-                // it is not the first round
-                let state = self.compute_theta_rho(&mut region, round, state)?;
+        // apply the theta and rho steps and also the iota step of the previous round if
+        // it is not the first round
+        let state = self.compute_theta_rho(layouter, round, state)?;
 
-                // apply the pi round which permutes the lanes. This performs no operation in
-                // circuit.
-                let state = state.compute_pi();
+        // apply the pi round which permutes the lanes. This performs no operation in
+        // circuit.
+        let state = state.compute_pi();
 
-                // apply the chi step (with no absorbtion)
-                let state = self.compute_chi(&mut region, round, &state, ms)?;
+        // apply the chi step (with no absorbtion)
+        let state = self.compute_chi(layouter, round, &state, ms)?;
 
-                // if it is the last round, also compute the final iota step
-                if round == KECCAK_NUM_ROUNDS - 1 {
-                    self.compute_last_iota(&mut region, &state)
-                } else {
-                    Ok(state)
-                }
-            },
-        )
+        // if it is the last round, also compute the final iota step
+        if round == KECCAK_NUM_ROUNDS - 1 {
+            self.compute_last_iota(layouter, &state)
+        } else {
+            Ok(state)
+        }
     }
 }
