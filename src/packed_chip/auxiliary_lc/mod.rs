@@ -12,8 +12,8 @@
 //!   step of the *previous* round
 //! - M[j + 5i] is the absorbed message (if it exists) and only applies for r=24
 
+use ff::PrimeField;
 use midnight_proofs::{
-    halo2curves::ff::PrimeField,
     plonk::{ConstraintSystem, Constraints, Expression},
     poly::Rotation,
 };

@@ -3,12 +3,11 @@ use std::marker::PhantomData;
 use midnight_proofs::{
     circuit::{Chip, Layouter, SimpleFloorPlanner, Value},
     dev::MockProver,
-    halo2curves::{
-        ff::{Field, PrimeField},
-        pasta::Fp,
-    },
     plonk::{Circuit, ConstraintSystem, Error},
 };
+
+use ff::{Field, PrimeField};
+use halo2curves::pasta::Fp;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 

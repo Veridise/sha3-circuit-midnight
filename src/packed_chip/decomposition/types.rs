@@ -1,6 +1,6 @@
 //! Types for decomposing bits in dense and spread forms
 
-use midnight_proofs::halo2curves::ff::PrimeField;
+use ff::PrimeField;
 
 use super::rotation::{lane_limbs, limb_sizes};
 use crate::{
@@ -103,7 +103,7 @@ pub(crate) struct AssignedDecomposedSpread<F: PrimeField> {
 #[cfg(test)]
 mod tests {
 
-    use midnight_proofs::halo2curves::pasta::Fp;
+    use halo2curves::pasta::Fp;
     use rand::{RngCore, SeedableRng};
     use rand_chacha::ChaCha8Rng;
 

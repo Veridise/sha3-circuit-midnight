@@ -4,8 +4,9 @@
 //! 1. assign spread bits representing lanes (u64)
 //! 2. assign rotated spread bits representing lanes (u64)
 
+use ff::PrimeField;
 use gates::{configure_decomposition_lc, configure_decomposition_lookup};
-use midnight_proofs::{halo2curves::ff::PrimeField, plonk::ConstraintSystem};
+use midnight_proofs::plonk::ConstraintSystem;
 
 use self::gates::configure_rotation_next_row;
 use crate::packed_chip::DecompositionSubconfig;

@@ -3,9 +3,9 @@
 //!
 //! This is done only in the very last round since the iota step is done
 //! together with the theta step of the *next round*.
+use ff::PrimeField;
 use midnight_proofs::{
     circuit::{Chip, Layouter, Region},
-    halo2curves::ff::PrimeField,
     plonk::Error,
 };
 

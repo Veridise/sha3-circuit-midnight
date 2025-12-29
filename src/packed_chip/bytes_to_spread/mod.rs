@@ -3,8 +3,8 @@
 //! The conversion is done as: [b0...b7] <-> spread(b7b6...b0),
 //! that is, the spread lane is mapped to little endian bytes.
 
+use ff::PrimeField;
 use midnight_proofs::{
-    halo2curves::ff::PrimeField,
     plonk::{ConstraintSystem, Constraints, Expression},
     poly::Rotation,
 };

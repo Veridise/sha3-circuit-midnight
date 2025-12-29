@@ -2,9 +2,8 @@
 
 use std::fmt::Debug;
 
-use midnight_proofs::{
-    circuit::AssignedCell, halo2curves::ff::PrimeField, plonk::Error, utils::rational::Rational,
-};
+use ff::PrimeField;
+use midnight_proofs::{circuit::AssignedCell, plonk::Error, utils::rational::Rational};
 #[cfg(test)]
 use num_bigint::BigUint;
 

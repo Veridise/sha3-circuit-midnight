@@ -33,9 +33,9 @@
 // Finally, note that for these optimizations, the iota step would need to
 // happen at the end of the round since we don't have the extra advice columns
 // to assign the RC[round] value, leading to 2 more rows per round.
+use ff::PrimeField;
 use midnight_proofs::{
     circuit::{Chip, Layouter, Region},
-    halo2curves::ff::PrimeField,
     plonk::Error,
 };
 

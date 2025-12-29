@@ -76,7 +76,7 @@
 //! limbs sizes :         |  4 |  7 | 9  | 11 | 11 | 11  | 11 |
 //! rotated limbs sizes : |  7 |  9 | 11 | 11 | 11 | 11  |  4 |
 
-use midnight_proofs::halo2curves::ff::PrimeField;
+use ff::PrimeField;
 
 use crate::{
     constants::KECCAK_LANE_SIZE,

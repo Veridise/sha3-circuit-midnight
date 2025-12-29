@@ -1,7 +1,7 @@
 //! gates needed for limb decomposition
 
+use ff::PrimeField;
 use midnight_proofs::{
-    halo2curves::ff::PrimeField,
     plonk::{
         Advice, Column, ConstraintSystem, Constraints, Expression, Fixed, Selector, TableColumn,
     },

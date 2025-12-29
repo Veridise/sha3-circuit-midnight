@@ -1,6 +1,7 @@
 //! Types and operation that are usefull for computing in-circuit the Keccak-f
 //! permutation
 
+use ff::PrimeField;
 use mdnt_groups_support::DecomposeIn;
 #[cfg(feature = "extraction")]
 use mdnt_support::{
@@ -12,15 +13,12 @@ use mdnt_support::{
     },
     circuit::injected::InjectedIR,
 };
+use midnight_proofs::circuit::{Cell, Value};
 #[cfg(feature = "extraction")]
 use midnight_proofs::{
     circuit::RegionIndex,
     plonk::{Error, Expression},
     ExtractionSupport,
-};
-use midnight_proofs::{
-    circuit::{Cell, Value},
-    halo2curves::ff::PrimeField,
 };
 
 use crate::{

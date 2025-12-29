@@ -18,6 +18,7 @@ midnight-proofs = { git = "https://github.com/Veridise/midnight-zk", version = "
 num-bigint = { version = "0.4" }
 rand = "0.8"
 blake2b_simd = "1.0.3"
+ff = "0.13"
 
 # extraction deps 
 mdnt-support = { version = "0.2", optional = true }
@@ -28,6 +29,7 @@ mdnt-groups-support = "0.2"
 criterion = "0.3"
 rand_chacha = "0.3.1"
 sha3 = "0.10.0"
+halo2curves = "0.9"
 
 [[bench]]
 name = "sha3_preimage"

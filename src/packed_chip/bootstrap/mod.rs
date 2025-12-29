@@ -12,8 +12,8 @@
 //! Crucially res_lsb, res_middle should be guaranteed to correspond to spread
 //! bits. This is done by decomposing.
 
+use ff::PrimeField;
 use midnight_proofs::{
-    halo2curves::ff::PrimeField,
     plonk::{ConstraintSystem, Constraints, Expression},
     poly::Rotation,
 };

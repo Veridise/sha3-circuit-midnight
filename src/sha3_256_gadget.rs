@@ -1,12 +1,11 @@
 use std::marker::PhantomData;
 
+use crate::{constants::KECCAK_ABSORB_BYTES, instructions::Keccackf1600Instructions};
+use ff::PrimeField;
 use midnight_proofs::{
     circuit::{AssignedCell, Layouter, Value},
-    halo2curves::ff::PrimeField,
     plonk::Error,
 };
-
-use crate::{constants::KECCAK_ABSORB_BYTES, instructions::Keccackf1600Instructions};
 
 #[derive(Debug, Clone, Copy)]
 /// Enum that represents the two supported hash modes. These are:

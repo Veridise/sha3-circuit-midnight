@@ -1,6 +1,6 @@
+use ff::PrimeField;
 use midnight_proofs::{
     circuit::{Layouter, Value},
-    halo2curves::ff::PrimeField,
     plonk::Error,
 };
 

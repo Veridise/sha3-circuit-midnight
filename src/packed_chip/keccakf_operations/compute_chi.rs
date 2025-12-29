@@ -19,9 +19,9 @@
 //!
 //! A[i][j] --> 2 * (A[i][j] xor M[i + 5*j] + (spread(1..1) - A[i+1][j] +
 //! A[i+2][j]).
+use ff::PrimeField;
 use midnight_proofs::{
     circuit::{Chip, Layouter, Region},
-    halo2curves::ff::PrimeField,
     plonk::Error,
 };
 

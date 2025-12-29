@@ -3,7 +3,6 @@
 
 use midnight_proofs::{
     circuit::{Chip, Region, Value},
-    halo2curves::ff::PrimeField,
     plonk::Error,
 };
 
@@ -11,6 +10,7 @@ use crate::packed_chip::{
     utils::{AssignedSpreadBits, SpreadBits},
     PackedChip, SPREAD_BASE_BITS,
 };
+use ff::PrimeField;
 
 #[repr(usize)]
 /// Representation of the result of the bootstraping.

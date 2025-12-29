@@ -13,13 +13,9 @@ use crate::packed_chip::{
 };
 
 mod test_bootstrap_gate {
-    use midnight_proofs::{
-        circuit::Chip,
-        halo2curves::{
-            ff::{Field, PrimeField},
-            pasta::Fp,
-        },
-    };
+    use ff::{Field, PrimeField};
+    use halo2curves::pasta::Fp;
+    use midnight_proofs::circuit::Chip;
     use rand::Rng;
 
     use super::*;
@@ -216,9 +212,9 @@ mod test_bootstrap_gate {
 
 mod test_bootstrap_assignment {
 
-    use midnight_proofs::halo2curves::{ff::PrimeField, pasta::Fp};
-
     use super::*;
+    use ff::PrimeField;
+    use halo2curves::pasta::Fp;
 
     /// Takes as input vectors of u64 words, combines them to SpreadBits  and
     /// bootstraps the result

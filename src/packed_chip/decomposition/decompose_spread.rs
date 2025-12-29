@@ -1,8 +1,8 @@
 //! decomposes a (64bit) lane to limbs ammenable to rotations.
 
+use ff::PrimeField;
 use midnight_proofs::{
     circuit::{AssignedCell, Chip, Region, Value},
-    halo2curves::ff::PrimeField,
     plonk::Error,
 };
 

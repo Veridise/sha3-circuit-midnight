@@ -9,12 +9,10 @@ use std::{
 };
 
 use criterion::{BenchmarkId, Criterion};
+use ff::PrimeField;
+use halo2curves::bn256::{Bn256, Fr};
 use midnight_proofs::{
     circuit::{Layouter, SimpleFloorPlanner, Value},
-    halo2curves::{
-        bn256::{Bn256, Fr},
-        ff::PrimeField,
-    },
     plonk::{
         create_proof, keygen_pk, keygen_vk, prepare, Circuit, ConstraintSystem, Error, ProvingKey,
         VerifyingKey,

@@ -1,8 +1,8 @@
 use std::fmt::Debug;
 
+use ff::PrimeField;
 use midnight_proofs::{
     circuit::{AssignedCell, Chip, Layouter, Value},
-    halo2curves::ff::PrimeField,
     plonk::Error,
 };
 

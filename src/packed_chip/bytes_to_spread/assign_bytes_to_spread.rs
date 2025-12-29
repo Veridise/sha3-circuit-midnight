@@ -1,8 +1,8 @@
 //! Module to assign a spread lane by 8 assigned (dense) bytes.
 
+use ff::PrimeField;
 use midnight_proofs::{
     circuit::{Chip, Region, Value},
-    halo2curves::ff::PrimeField,
     plonk::Error,
 };
 

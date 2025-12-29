@@ -9,6 +9,7 @@ mod utils;
 
 use std::marker::PhantomData;
 
+use ff::PrimeField;
 use keccakf_operations::KECCAK_ROWS_PER_PERMUTATION;
 #[cfg(feature = "extraction")]
 use mdnt_support::{
@@ -24,7 +25,6 @@ use mdnt_support::{
 use midnight_proofs::{circuit::RegionIndex, plonk::Expression, ExtractionSupport};
 use midnight_proofs::{
     circuit::{Chip, Layouter, Value},
-    halo2curves::ff::PrimeField,
     plonk::{Advice, Column, ConstraintSystem, Error, Fixed, Selector, TableColumn},
 };
 use utils::{Bits, DenseBits};
