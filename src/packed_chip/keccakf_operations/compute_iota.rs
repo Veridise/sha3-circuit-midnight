@@ -33,76 +33,67 @@ impl<F: PrimeField> PackedChip<F> {
     /// |--------|---------|---------|---------|--------|-----------|
     /// |  4104  |  a00m   | a[0,0]  |  RC[24] | acc0   |    ...    |
     /// |  4105  |  a00l   |    0    |    0    | acc1   |    ...    |
+    #[picus::group(crate = mdnt_groups_support)]
     pub(super) fn compute_last_iota(
         &self,
         layouter: &mut impl Layouter<F>,
-        state: &AssignedKeccakState<F>,
+        #[input] state: &AssignedKeccakState<F>,
     ) -> Result<AssignedKeccakState<F>, Error> {
         // This function has been modified s.t. each keccakf round is in a separate region.
         // The original version had all the rounds in one region.
         // See commit f8a436dcc329aed450a35dbc1192ebaf684d5e24 for the original.
-        layouter.group(
-            || "compute_last_iota",
-            midnight_proofs::default_group_key!(),
-            |layouter, group| {
-                group.annotate_as_input(state)?;
-                layouter.assign_region(
-                    || "compute last iota",
-                    |mut region| {
-                        let mut new_state = state.clone();
+        layouter.assign_region(
+            || "compute last iota",
+            |mut region| {
+                let mut new_state = state.clone();
 
-                        // compute the spread form of the last round constant
-                        let rc = SpreadBits::try_from_u64(
-                            ROUND_CST[KECCAK_NUM_ROUNDS - 1],
-                            KECCAK_LANE_SIZE,
-                        )
+                // compute the spread form of the last round constant
+                let rc =
+                    SpreadBits::try_from_u64(ROUND_CST[KECCAK_NUM_ROUNDS - 1], KECCAK_LANE_SIZE)
                         .unwrap();
 
-                        // add the rc to the a[0][0] element
-                        let a00_new_with_error =
-                            state.inner[0][0].value().map(|a00| a00.try_add(&rc).unwrap());
+                // add the rc to the a[0][0] element
+                let a00_new_with_error =
+                    state.inner[0][0].value().map(|a00| a00.try_add(&rc).unwrap());
 
-                        // bootstrap the value and enable the iota selector to add the values
-                        let a00_new = self.assign_bootstrap2(
-                            &mut region,
-                            LAST_IOTA_OFFSET,
-                            &a00_new_with_error,
-                            0,
-                            BPart::L,
-                        )?;
-                        self.config().lc_subconfig.q_iota.enable(&mut region, LAST_IOTA_OFFSET)?;
+                // bootstrap the value and enable the iota selector to add the values
+                let a00_new = self.assign_bootstrap2(
+                    &mut region,
+                    LAST_IOTA_OFFSET,
+                    &a00_new_with_error,
+                    0,
+                    BPart::L,
+                )?;
+                self.config().lc_subconfig.q_iota.enable(&mut region, LAST_IOTA_OFFSET)?;
 
-                        new_state.inner[0][0] = a00_new;
+                new_state.inner[0][0] = a00_new;
 
-                        // copy constraint/assign fixed values for the advice columns
-                        state.inner[0][0].copy_advice(
-                            || "copy old a00 element for last iota step",
-                            &mut region,
-                            self.config().lc_subconfig.advice[0],
-                            LAST_IOTA_OFFSET,
-                        )?;
-                        region.assign_advice_from_constant(
-                            || "assigning rc[24]",
-                            self.config().lc_subconfig.advice[1],
-                            LAST_IOTA_OFFSET,
-                            rc,
-                        )?;
-                        region.assign_advice_from_constant(
-                            || "assigning constant 0 for iota step col 0",
-                            self.config().lc_subconfig.advice[0],
-                            LAST_IOTA_OFFSET + 1,
-                            SpreadBits::zero(),
-                        )?;
-                        region.assign_advice_from_constant(
-                            || "assigning constant 0 for iota step col 1",
-                            self.config().lc_subconfig.advice[1],
-                            LAST_IOTA_OFFSET + 1,
-                            SpreadBits::zero(),
-                        )?;
-                        group.annotate_as_output(&new_state)?;
-                        Ok(new_state)
-                    },
-                )
+                // copy constraint/assign fixed values for the advice columns
+                state.inner[0][0].copy_advice(
+                    || "copy old a00 element for last iota step",
+                    &mut region,
+                    self.config().lc_subconfig.advice[0],
+                    LAST_IOTA_OFFSET,
+                )?;
+                region.assign_advice_from_constant(
+                    || "assigning rc[24]",
+                    self.config().lc_subconfig.advice[1],
+                    LAST_IOTA_OFFSET,
+                    rc,
+                )?;
+                region.assign_advice_from_constant(
+                    || "assigning constant 0 for iota step col 0",
+                    self.config().lc_subconfig.advice[0],
+                    LAST_IOTA_OFFSET + 1,
+                    SpreadBits::zero(),
+                )?;
+                region.assign_advice_from_constant(
+                    || "assigning constant 0 for iota step col 1",
+                    self.config().lc_subconfig.advice[1],
+                    LAST_IOTA_OFFSET + 1,
+                    SpreadBits::zero(),
+                )?;
+                Ok(new_state)
             },
         )
     }

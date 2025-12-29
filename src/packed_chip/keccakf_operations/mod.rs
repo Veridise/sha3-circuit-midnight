@@ -55,12 +55,13 @@ impl<F: PrimeField> PackedChip<F> {
     /// given as input an assigned initial keccak state, it computes the state
     /// after applying one round of the keccak-f permutation. It optionally
     /// recieves message lanes to absorb *after* the final round.
+    #[picus::group(crate = mdnt_groups_support)]
     pub(super) fn keccakf_round(
         &self,
         layouter: &mut impl Layouter<F>,
         round: usize,
-        state: &AssignedKeccakState<F>,
-        ms: Option<&[AssignedSpreadBits<F>; KECCAK_ABSORB_LANES]>,
+        #[input] state: &AssignedKeccakState<F>,
+        #[input] ms: Option<&[AssignedSpreadBits<F>; KECCAK_ABSORB_LANES]>,
     ) -> Result<AssignedKeccakState<F>, Error> {
         // This function has been modified s.t. each keccakf round is in a separate region.
         // The original version had all the rounds in one region.

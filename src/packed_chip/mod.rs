@@ -340,7 +340,7 @@ pub struct PackedConfig {
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(
     feature = "extraction",
-    derive(mdnt_support_macros::NoChipArgs),
+    derive(picus::NoChipArgs),
     support_module(mdnt_support)
 )]
 /// The chip implementation with packed arithmetic
@@ -883,7 +883,7 @@ impl<F: PrimeField> Keccackf1600Instructions<F> for PackedChip<F> {
         // See commit f8a436dcc329aed450a35dbc1192ebaf684d5e24 for the original.
 
         (0..KECCAK_NUM_ROUNDS).try_fold(state.clone(), |old_state, round| {
-            self.keccakf_group(layouter, &old_state, round)
+            self.keccakf_round(layouter, round, &old_state, None)
         })
     }
 
@@ -899,21 +899,14 @@ impl<F: PrimeField> Keccackf1600Instructions<F> for PackedChip<F> {
 
         // apply all rounds except the last
         let state = (0..KECCAK_NUM_ROUNDS - 1).try_fold(state.clone(), |old_state, round| {
-            self.keccakf_group(layouter, &old_state, round)
+            self.keccakf_round(layouter, round, &old_state, None)
         })?;
-        layouter.group(
-            || "keccakf_round_with_ms",
-            midnight_proofs::default_group_key!(),
-            |layouter, group| {
-                group.annotate_as_input(&state)?;
-                // apply the last round and absorb
-                let ms = ms.map(|block| &block.spread_lanes);
-                let new_state = self.keccakf_round(layouter, KECCAK_NUM_ROUNDS - 1, &state, ms)?;
 
-                group.annotate_as_output(&new_state)?;
-                Ok(new_state)
-            },
-        )
+        // apply the last round and absorb
+        let ms = ms.map(|block| &block.spread_lanes);
+        let new_state = self.keccakf_round(layouter, KECCAK_NUM_ROUNDS - 1, &state, ms)?;
+
+        Ok(new_state)
     }
 
     fn squeeze(
@@ -938,25 +931,5 @@ impl<F: PrimeField> Keccackf1600Instructions<F> for PackedChip<F> {
         let digest = result.iter().flat_map(|v| v.to_vec()).collect::<Vec<_>>().try_into().unwrap();
 
         Ok(digest)
-    }
-}
-
-impl<F: PrimeField> PackedChip<F> {
-    fn keccakf_group(
-        &self,
-        layouter: &mut impl Layouter<F>,
-        old_state: &AssignedKeccakState<F>,
-        round: usize,
-    ) -> Result<AssignedKeccakState<F>, Error> {
-        layouter.group(
-            || "keccakf_round",
-            midnight_proofs::default_group_key!(),
-            |layouter, group| {
-                group.annotate_as_input(old_state)?;
-                let new_state = self.keccakf_round(layouter, round, old_state, None)?;
-                group.annotate_as_output(&new_state)?;
-                Ok(new_state)
-            },
-        )
     }
 }

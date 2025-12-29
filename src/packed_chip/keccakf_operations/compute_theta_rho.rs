@@ -101,151 +101,141 @@ impl<F: PrimeField> PackedChip<F> {
     /// |--------|---------|---------|---------|--------|-----------|
     // NOTE: this could be given as two separate functions but it seems clearer to
     // inspect them together
+    #[picus::group(crate = mdnt_groups_support)]
     pub(super) fn compute_theta_rho(
         &self,
         layouter: &mut impl Layouter<F>,
         round: usize,
-        state: &AssignedKeccakState<F>,
+        #[input] state: &AssignedKeccakState<F>,
     ) -> Result<AssignedKeccakState<F>, Error> {
         // This function has been modified s.t. each keccakf round is in a separate region.
         // The original version had all the rounds in one region.
         // See commit f8a436dcc329aed450a35dbc1192ebaf684d5e24 for the original.
-        layouter.group(
-            || "theta_rho",
-            midnight_proofs::default_group_key!(),
-            |layouter, group| {
-                group.annotate_as_input(state)?;
-                layouter.assign_region(
-                    || "compute theta rho",
-                    |mut region| {
-                        let assigned_cs = self.compute_c(&mut region, round, state)?;
+        layouter.assign_region(
+            || "compute theta rho",
+            |mut region| {
+                let assigned_cs = self.compute_c(&mut region, round, state)?;
 
-                        // compute the region offset for theta
-                        let theta_offset = round * ROWS_PER_ROUND + COMPUTE_THETA_OFFSET_START;
+                // compute the region offset for theta
+                let theta_offset = round * ROWS_PER_ROUND + COMPUTE_THETA_OFFSET_START;
 
-                        // Compute and spread the round constants added to a[i][j]. These are all zero
-                        // except possibly for A[0][0]. Recall that these constants are from the
-                        // previous round. It is important to assign either the round constant or the
-                        // zero constant since the constrain also adds the corresponding cell.
-                        let mut rcs = [[0; KECCAK_WIDTH]; KECCAK_WIDTH];
-                        if round != 0 {
-                            rcs[0][0] = ROUND_CST[round - 1];
-                        }
-                        let spread_rcs = rcs.map(|rcs| {
-                            rcs.map(|rc| SpreadBits::try_from_u64(rc, KECCAK_LANE_SIZE).unwrap())
-                        });
+                // Compute and spread the round constants added to a[i][j]. These are all zero
+                // except possibly for A[0][0]. Recall that these constants are from the
+                // previous round. It is important to assign either the round constant or the
+                // zero constant since the constrain also adds the corresponding cell.
+                let mut rcs = [[0; KECCAK_WIDTH]; KECCAK_WIDTH];
+                if round != 0 {
+                    rcs[0][0] = ROUND_CST[round - 1];
+                }
+                let spread_rcs = rcs.map(|rcs| {
+                    rcs.map(|rc| SpreadBits::try_from_u64(rc, KECCAK_LANE_SIZE).unwrap())
+                });
 
-                        // compute the new state with error
-                        let mut new_state_with_error =
-                            state.value().compute_theta_with_error(assigned_cs.value());
+                // compute the new state with error
+                let mut new_state_with_error =
+                    state.value().compute_theta_with_error(assigned_cs.value());
 
-                        // add the round constant of the previous round if any
-                        new_state_with_error.inner[0][0] = new_state_with_error.inner[0][0]
-                            .clone()
-                            .map(|a_old| a_old.try_add(&spread_rcs[0][0]).unwrap());
+                // add the round constant of the previous round if any
+                new_state_with_error.inner[0][0] = new_state_with_error.inner[0][0]
+                    .clone()
+                    .map(|a_old| a_old.try_add(&spread_rcs[0][0]).unwrap());
 
-                        // The layout looks like this:
-                        //
-                        // | dc_res  |  adv0   |  adv1   |  acc        |   limbs   |
-                        // |---------|---------|---------|-------------|-----------|
-                        // | a_i,jm  |a_i,jold |  c_i-1  | acc0        |    ...    |
-                        // | a_i,jl  |rotc_i+1 |  RC/0   | a_i,j_error |    ...    |
-                        // | rotaij  |    X    |    X    |      X      |    ...    |
-                        //
-                        // We need to:
+                // The layout looks like this:
+                //
+                // | dc_res  |  adv0   |  adv1   |  acc        |   limbs   |
+                // |---------|---------|---------|-------------|-----------|
+                // | a_i,jm  |a_i,jold |  c_i-1  | acc0        |    ...    |
+                // | a_i,jl  |rotc_i+1 |  RC/0   | a_i,j_error |    ...    |
+                // | rotaij  |    X    |    X    |      X      |    ...    |
+                //
+                // We need to:
+                //  1. assign bootstrap a_i,j_error terms
+                //  2. copy constraint the cells of adv0, adv1
+                //  3. apply the q_theta gate to further constraint a_i,j_error
+                //  4. compute the appropriate rotated element in the third row
+                //
+                //  The first element a00 needs to be bootstraped *in three rows* since it
+                //  has more accumulated error due to the added rc element
+                let assigned_state_lanes = (0..KECCAK_NUM_LANES)
+                    .map(|k| {
+                        let (i, j) = (k / KECCAK_WIDTH, k % KECCAK_WIDTH);
+                        let lane = new_state_with_error.inner[i][j].clone();
+
                         //  1. assign bootstrap a_i,j_error terms
+                        let a_low = if i == 0 && j == 0 {
+                            // case a00 with more accumulated error
+                            self.assign_bootstrap3(
+                                &mut region,
+                                theta_offset,
+                                &lane,
+                                // we rotate left but we implement right rotations
+                                // so we do a 64-rot rotation
+                                (KECCAK_LANE_SIZE - RHO_ROTATAIONS[0][0]) % KECCAK_LANE_SIZE,
+                                BPart::L,
+                            )
+                        } else {
+                            self.assign_bootstrap2(
+                                &mut region,
+                                // 3 rows per a_i,j element except a_0,0 which needs 4.
+                                // The 1 is due to the extra row needed for a[0][0].
+                                theta_offset + 3 * k + 1,
+                                &lane,
+                                // we rotate left but we implement right rotations
+                                // so we do a 64-rot rotation
+                                (KECCAK_LANE_SIZE - RHO_ROTATAIONS[i][j]) % KECCAK_LANE_SIZE,
+                                BPart::L,
+                            )
+                        }?;
+
                         //  2. copy constraint the cells of adv0, adv1
+                        state.inner[i][j].copy_advice(
+                            || format!("copy old state element {}, {}", i, j),
+                            &mut region,
+                            self.config().lc_subconfig.advice[0],
+                            theta_offset + 3 * k + 1,
+                        )?;
+                        assigned_cs.cs[(i + KECCAK_WIDTH - 1) % KECCAK_WIDTH].copy_advice(
+                            || format!("copy c {}", i - 1),
+                            &mut region,
+                            self.config().lc_subconfig.advice[1],
+                            theta_offset + 3 * k + 1,
+                        )?;
+                        assigned_cs.rot_cs[(i + 1) % KECCAK_WIDTH].copy_advice(
+                            || format!("copy rotated c {}", i + 1),
+                            &mut region,
+                            self.config().lc_subconfig.advice[0],
+                            theta_offset + 3 * k + 2,
+                        )?;
+                        region.assign_advice_from_constant(
+                            || "assigning rc",
+                            self.config().lc_subconfig.advice[1],
+                            theta_offset + 3 * k + 2,
+                            // spread rcs correspond to RC[round] or 0
+                            spread_rcs[i][j].clone(),
+                        )?;
+
                         //  3. apply the q_theta gate to further constraint a_i,j_error
+                        self.config()
+                            .lc_subconfig
+                            .q_theta
+                            .enable(&mut region, theta_offset + 3 * k + 1)?;
+
                         //  4. compute the appropriate rotated element in the third row
-                        //
-                        //  The first element a00 needs to be bootstraped *in three rows* since it
-                        //  has more accumulated error due to the added rc element
-                        let assigned_state_lanes = (0..KECCAK_NUM_LANES)
-                            .map(|k| {
-                                let (i, j) = (k / KECCAK_WIDTH, k % KECCAK_WIDTH);
-                                let lane = new_state_with_error.inner[i][j].clone();
+                        self.assign_rotation_next_row(
+                            &mut region,
+                            theta_offset + 3 * k + 2,
+                            &a_low.value().map(|v| v.try_to_lane().unwrap()),
+                            // we rotate left but we implement right rotations
+                            // so we do a 64-rot rotation
+                            (KECCAK_LANE_SIZE - RHO_ROTATAIONS[i][j]) % KECCAK_LANE_SIZE,
+                        )
+                    })
+                    .collect::<Result<Vec<_>, Error>>()?;
 
-                                //  1. assign bootstrap a_i,j_error terms
-                                let a_low = if i == 0 && j == 0 {
-                                    // case a00 with more accumulated error
-                                    self.assign_bootstrap3(
-                                        &mut region,
-                                        theta_offset,
-                                        &lane,
-                                        // we rotate left but we implement right rotations
-                                        // so we do a 64-rot rotation
-                                        (KECCAK_LANE_SIZE - RHO_ROTATAIONS[0][0])
-                                            % KECCAK_LANE_SIZE,
-                                        BPart::L,
-                                    )
-                                } else {
-                                    self.assign_bootstrap2(
-                                        &mut region,
-                                        // 3 rows per a_i,j element except a_0,0 which needs 4.
-                                        // The 1 is due to the extra row needed for a[0][0].
-                                        theta_offset + 3 * k + 1,
-                                        &lane,
-                                        // we rotate left but we implement right rotations
-                                        // so we do a 64-rot rotation
-                                        (KECCAK_LANE_SIZE - RHO_ROTATAIONS[i][j])
-                                            % KECCAK_LANE_SIZE,
-                                        BPart::L,
-                                    )
-                                }?;
-
-                                //  2. copy constraint the cells of adv0, adv1
-                                state.inner[i][j].copy_advice(
-                                    || format!("copy old state element {}, {}", i, j),
-                                    &mut region,
-                                    self.config().lc_subconfig.advice[0],
-                                    theta_offset + 3 * k + 1,
-                                )?;
-                                assigned_cs.cs[(i + KECCAK_WIDTH - 1) % KECCAK_WIDTH].copy_advice(
-                                    || format!("copy c {}", i - 1),
-                                    &mut region,
-                                    self.config().lc_subconfig.advice[1],
-                                    theta_offset + 3 * k + 1,
-                                )?;
-                                assigned_cs.rot_cs[(i + 1) % KECCAK_WIDTH].copy_advice(
-                                    || format!("copy rotated c {}", i + 1),
-                                    &mut region,
-                                    self.config().lc_subconfig.advice[0],
-                                    theta_offset + 3 * k + 2,
-                                )?;
-                                region.assign_advice_from_constant(
-                                    || "assigning rc",
-                                    self.config().lc_subconfig.advice[1],
-                                    theta_offset + 3 * k + 2,
-                                    // spread rcs correspond to RC[round] or 0
-                                    spread_rcs[i][j].clone(),
-                                )?;
-
-                                //  3. apply the q_theta gate to further constraint a_i,j_error
-                                self.config()
-                                    .lc_subconfig
-                                    .q_theta
-                                    .enable(&mut region, theta_offset + 3 * k + 1)?;
-
-                                //  4. compute the appropriate rotated element in the third row
-                                self.assign_rotation_next_row(
-                                    &mut region,
-                                    theta_offset + 3 * k + 2,
-                                    &a_low.value().map(|v| v.try_to_lane().unwrap()),
-                                    // we rotate left but we implement right rotations
-                                    // so we do a 64-rot rotation
-                                    (KECCAK_LANE_SIZE - RHO_ROTATAIONS[i][j]) % KECCAK_LANE_SIZE,
-                                )
-                            })
-                            .collect::<Result<Vec<_>, Error>>()?;
-
-                        // construct the new state corresponding to rho(theta(state))
-                        let assigned_state = AssignedKeccakState::from_lanes(
-                            &assigned_state_lanes.try_into().unwrap(),
-                        );
-                        group.annotate_as_output(&assigned_state)?;
-                        Ok(assigned_state)
-                    },
-                )
+                // construct the new state corresponding to rho(theta(state))
+                let assigned_state =
+                    AssignedKeccakState::from_lanes(&assigned_state_lanes.try_into().unwrap());
+                Ok(assigned_state)
             },
         )
         // compute cs and their rotations using the helper function

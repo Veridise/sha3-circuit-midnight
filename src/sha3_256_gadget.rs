@@ -181,7 +181,7 @@ where
 #[derive(Debug)]
 #[cfg_attr(
     feature = "extraction",
-    derive(mdnt_support_macros::NoChipArgs),
+    derive(picus::NoChipArgs),
     support_module(mdnt_support)
 )]
 pub struct Sha3_256<F, KeccakF>
