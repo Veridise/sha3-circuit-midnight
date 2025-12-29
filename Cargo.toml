@@ -11,7 +11,7 @@ keywords = ["halo", "proofs", "zkp", "zkSNARKs", "sha3", "keccak"]
 
 [dependencies]
 midnight-proofs = { git = "https://github.com/Veridise/midnight-zk", version = "0.5.1", default-features = false, features = [
-  "bits",
+  # "bits",
   # "cost-estimator",
   "circuit-params",
 ] }
