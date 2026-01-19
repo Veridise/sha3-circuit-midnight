@@ -39,11 +39,13 @@ const COMPUTE_THETA_OFFSET_START: usize = COMPUTE_C_OFFSET_END;
 const COMPUTE_THETA_OFFSET_END: usize = COMPUTE_THETA_OFFSET_START + 3 * KECCAK_NUM_LANES + 1;
 
 /// 3 rows per lane for computing chi
-const COMPUTE_CHI_OFFSET_START: usize = COMPUTE_THETA_OFFSET_END;
+/// Set to 0 since compute chi is on its own region now.
+const COMPUTE_CHI_OFFSET_START: usize = 0; // COMPUTE_THETA_OFFSET_END;
 const COMPUTE_CHI_OFFSET_END: usize = COMPUTE_CHI_OFFSET_START + 3 * KECCAK_NUM_LANES;
 
 /// rows needed per keccak-f round
-const ROWS_PER_ROUND: usize = COMPUTE_CHI_OFFSET_END;
+/// Added + COMPUTE_THETA_OFFSET_END since COMPUTE_CHI_OFFSET_START is now 0.
+const ROWS_PER_ROUND: usize = COMPUTE_CHI_OFFSET_END + COMPUTE_THETA_OFFSET_END;
 
 /// rows where the last iota step is computed
 const LAST_IOTA_OFFSET: usize = KECCAK_NUM_ROUNDS * ROWS_PER_ROUND;
