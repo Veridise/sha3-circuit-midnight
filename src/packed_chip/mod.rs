@@ -350,7 +350,7 @@ pub struct PackedChip<F: PrimeField> {
 }
 
 #[cfg(feature = "extraction")]
-impl<F, L> mdnt_support::circuit::CircuitInitialization<L> for PackedChip<F>
+impl<F, L> haloumi::circuit::ExtraibleChip<L> for PackedChip<F>
 where
     F: PrimeField,
     L: Layouter<F>,

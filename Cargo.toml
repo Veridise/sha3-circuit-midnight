@@ -9,21 +9,29 @@ license = "Apache-2.0"
 categories = ["cryptography"]
 keywords = ["halo", "proofs", "zkp", "zkSNARKs", "sha3", "keccak"]
 
+[[bin]]
+name = "haloumi-extractor"
+required-features = ["extraction"]
+path = "src/bin/extractor.rs"
+
 [dependencies]
-midnight-proofs = { git = "https://github.com/Veridise/midnight-zk", version = "0.5.1", default-features = false, features = [
-  # "bits",
-  # "cost-estimator",
-  "circuit-params",
-] }
+midnight-proofs = { path = "../midnight-zk-current/proofs/" }
+# midnight-proofs = { git = "https://github.com/Veridise/midnight-zk", version = "0.5.1", default-features = false, features = [
+#   # "bits",
+#   # "cost-estimator",
+#   "circuit-params",
+# ] }
 num-bigint = { version = "0.4" }
 rand = "0.8"
 blake2b_simd = "1.0.3"
 ff = "0.13"
 
 # extraction deps 
-mdnt-support = { version = "0.2", optional = true }
-picus = { version = "0.2", package = "mdnt-support-macros" }
-mdnt-groups-support = "0.2"
+haloumi = { path = "../haloumi/integration", package = "haloumi-integration", optional = true }
+haloumi-extractor = { path = "../haloumi/extractor",  optional = true }
+mdnt-support = { path = "../midnight-extractor/crates/support/", optional = true }
+picus = { path = "../midnight-extractor/crates/support-macros/", package = "mdnt-support-macros" }
+mdnt-groups-support = { path = "../midnight-extractor/crates/groups-support/" }
 
 [dev-dependencies]
 criterion = "0.3"
@@ -39,6 +47,8 @@ harness = false
 default = ["extraction"] # Default while writing the extraction support
 extraction = [
   "mdnt-support",
+  "haloumi",
+  "haloumi-extractor",
   "picus/extractor-derive",
   "midnight-proofs/extraction", 
   "midnight-proofs/region-groups"
