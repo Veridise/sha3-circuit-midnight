@@ -933,3 +933,408 @@ impl<F: PrimeField> Keccackf1600Instructions<F> for PackedChip<F> {
         Ok(digest)
     }
 }
+
+#[cfg(feature = "extraction")]
+pub fn extract_assign_message_block(
+    extractor: &haloumi_extractor::extractor::Extractor,
+) -> haloumi_extractor::anyhow::Result<haloumi_extractor::Output> {
+    use haloumi::circuit::{AbstractCircuit, AbstractCircuitIO, NoChipArgs};
+    use haloumi_extractor::circuit::Function;
+    use midnight_curves::Fq as F;
+    use midnight_proofs::{
+        circuit::{Cell, RegionIndex},
+        plonk::{Advice, Column, ConstraintSystem, Error, Expression, Fixed, TableColumn},
+    };
+
+    struct Circuit;
+
+    impl AbstractCircuitIO for Circuit {
+        type Chip = PackedChip<F>;
+        type Input = [<PackedChip<F> as Keccackf1600Instructions<F>>::AssignedByte; 136];
+        type Output = AbsorbedBlock<F>;
+        type Config = PackedConfig;
+        type ConfigCols = (
+            Column<Fixed>,
+            [Column<Advice>; PACKED_ADVICE_COLS],
+            [Column<Fixed>; PACKED_FIXED_COLS],
+            [TableColumn; PACKED_TABLE_COLS],
+        );
+    }
+
+    impl AbstractCircuit<F> for Circuit {
+        type Error = Error;
+        type Expression = Expression<F>;
+        type Cell = Cell;
+        type RegionIndex = RegionIndex;
+
+        fn synthesize<L>(
+            &self,
+            chip: &Self::Chip,
+            layouter: &mut haloumi::core::layouter::LayoutAdaptor<L>,
+            block: Self::Input,
+            _: &mut haloumi::ir::inject::InjectedIR<RegionIndex, Self::Expression>,
+        ) -> Result<Self::Output, Self::Error>
+        where
+            L: haloumi::core::layouter::Layouter<F, Self::Error>
+                + haloumi::core::groups::RegionsGroupHooks<F, Self::Cell, Error = Self::Error>,
+        {
+            chip.assign_message_block(layouter, &block.map(|byte| byte.value().cloned()))
+        }
+    }
+
+    impl NoChipArgs for Circuit {}
+
+    let circuit = extractor.make_circuit::<
+        F,
+        _,
+        Function,
+        midnight_proofs::ExtractionSupport,
+        ConstraintSystem<F>,
+    >(Circuit);
+    let lookups = crate::lookup_callbacks::sha3_lookup_callbacks();
+    Ok(extractor.extract_circuit(circuit, Some(&lookups))?)
+}
+
+#[cfg(feature = "extraction")]
+haloumi_extractor::register_harness!(
+    "keccakf/assign_message_block/packed/byte",
+    extract_assign_message_block
+);
+
+#[cfg(feature = "extraction")]
+pub fn extract_initialize_and_absorb(
+    extractor: &haloumi_extractor::extractor::Extractor,
+) -> haloumi_extractor::anyhow::Result<haloumi_extractor::Output> {
+    use haloumi::circuit::{AbstractCircuit, AbstractCircuitIO, NoChipArgs};
+    use haloumi_extractor::circuit::Function;
+    use midnight_curves::Fq as F;
+    use midnight_proofs::{
+        circuit::{Cell, RegionIndex},
+        plonk::{Advice, Column, ConstraintSystem, Error, Expression, Fixed, TableColumn},
+    };
+
+    struct Circuit;
+
+    impl AbstractCircuitIO for Circuit {
+        type Chip = PackedChip<F>;
+        type Input = AbsorbedBlock<F>;
+        type Output = <PackedChip<F> as Keccackf1600Instructions<F>>::State;
+        type Config = PackedConfig;
+        type ConfigCols = (
+            Column<Fixed>,
+            [Column<Advice>; PACKED_ADVICE_COLS],
+            [Column<Fixed>; PACKED_FIXED_COLS],
+            [TableColumn; PACKED_TABLE_COLS],
+        );
+    }
+
+    impl AbstractCircuit<F> for Circuit {
+        type Error = Error;
+        type Expression = Expression<F>;
+        type Cell = Cell;
+        type RegionIndex = RegionIndex;
+
+        fn synthesize<L>(
+            &self,
+            chip: &Self::Chip,
+            layouter: &mut haloumi::core::layouter::LayoutAdaptor<L>,
+            block: Self::Input,
+            _: &mut haloumi::ir::inject::InjectedIR<RegionIndex, Self::Expression>,
+        ) -> Result<Self::Output, Self::Error>
+        where
+            L: haloumi::core::layouter::Layouter<F, Self::Error>
+                + haloumi::core::groups::RegionsGroupHooks<F, Self::Cell, Error = Self::Error>,
+        {
+            chip.initialize_and_absorb(layouter, &block)
+        }
+    }
+
+    impl NoChipArgs for Circuit {}
+
+    let circuit = extractor.make_circuit::<
+        F,
+        _,
+        Function,
+        midnight_proofs::ExtractionSupport,
+        ConstraintSystem<F>,
+    >(Circuit);
+    let lookups = crate::lookup_callbacks::sha3_lookup_callbacks();
+    Ok(extractor.extract_circuit(circuit, Some(&lookups))?)
+}
+
+#[cfg(feature = "extraction")]
+haloumi_extractor::register_harness!(
+    "keccakf/initialize_and_absorb/packed/byte",
+    extract_initialize_and_absorb
+);
+
+#[cfg(feature = "extraction")]
+pub fn extract_keccakf(
+    extractor: &haloumi_extractor::extractor::Extractor,
+) -> haloumi_extractor::anyhow::Result<haloumi_extractor::Output> {
+    use haloumi::circuit::{AbstractCircuit, AbstractCircuitIO, NoChipArgs};
+    use haloumi_extractor::circuit::Function;
+    use midnight_curves::Fq as F;
+    use midnight_proofs::{
+        circuit::{Cell, RegionIndex},
+        plonk::{Advice, Column, ConstraintSystem, Error, Expression, Fixed, TableColumn},
+    };
+
+    type State = <PackedChip<F> as Keccackf1600Instructions<F>>::State;
+
+    struct Circuit;
+
+    impl AbstractCircuitIO for Circuit {
+        type Chip = PackedChip<F>;
+        type Input = State;
+        type Output = State;
+        type Config = PackedConfig;
+        type ConfigCols = (
+            Column<Fixed>,
+            [Column<Advice>; PACKED_ADVICE_COLS],
+            [Column<Fixed>; PACKED_FIXED_COLS],
+            [TableColumn; PACKED_TABLE_COLS],
+        );
+    }
+
+    impl AbstractCircuit<F> for Circuit {
+        type Error = Error;
+        type Expression = Expression<F>;
+        type Cell = Cell;
+        type RegionIndex = RegionIndex;
+
+        fn synthesize<L>(
+            &self,
+            chip: &Self::Chip,
+            layouter: &mut haloumi::core::layouter::LayoutAdaptor<L>,
+            state: Self::Input,
+            _: &mut haloumi::ir::inject::InjectedIR<RegionIndex, Self::Expression>,
+        ) -> Result<Self::Output, Self::Error>
+        where
+            L: haloumi::core::layouter::Layouter<F, Self::Error>
+                + haloumi::core::groups::RegionsGroupHooks<F, Self::Cell, Error = Self::Error>,
+        {
+            chip.keccakf(layouter, &state)
+        }
+    }
+
+    impl NoChipArgs for Circuit {}
+
+    let circuit = extractor.make_circuit::<
+        F,
+        _,
+        Function,
+        midnight_proofs::ExtractionSupport,
+        ConstraintSystem<F>,
+    >(Circuit);
+    let lookups = crate::lookup_callbacks::sha3_lookup_callbacks();
+    Ok(extractor.extract_circuit(circuit, Some(&lookups))?)
+}
+
+#[cfg(feature = "extraction")]
+haloumi_extractor::register_harness!("keccakf/keccakf/packed/byte", extract_keccakf);
+
+#[cfg(feature = "extraction")]
+pub fn extract_keccakf_and_absorb_none(
+    extractor: &haloumi_extractor::extractor::Extractor,
+) -> haloumi_extractor::anyhow::Result<haloumi_extractor::Output> {
+    use haloumi::circuit::{AbstractCircuit, AbstractCircuitIO, NoChipArgs};
+    use haloumi_extractor::circuit::Function;
+    use midnight_curves::Fq as F;
+    use midnight_proofs::{
+        circuit::{Cell, RegionIndex},
+        plonk::{Advice, Column, ConstraintSystem, Error, Expression, Fixed, TableColumn},
+    };
+
+    type State = <PackedChip<F> as Keccackf1600Instructions<F>>::State;
+
+    struct Circuit;
+
+    impl AbstractCircuitIO for Circuit {
+        type Chip = PackedChip<F>;
+        type Input = State;
+        type Output = State;
+        type Config = PackedConfig;
+        type ConfigCols = (
+            Column<Fixed>,
+            [Column<Advice>; PACKED_ADVICE_COLS],
+            [Column<Fixed>; PACKED_FIXED_COLS],
+            [TableColumn; PACKED_TABLE_COLS],
+        );
+    }
+
+    impl AbstractCircuit<F> for Circuit {
+        type Error = Error;
+        type Expression = Expression<F>;
+        type Cell = Cell;
+        type RegionIndex = RegionIndex;
+
+        fn synthesize<L>(
+            &self,
+            chip: &Self::Chip,
+            layouter: &mut haloumi::core::layouter::LayoutAdaptor<L>,
+            state: Self::Input,
+            _: &mut haloumi::ir::inject::InjectedIR<RegionIndex, Self::Expression>,
+        ) -> Result<Self::Output, Self::Error>
+        where
+            L: haloumi::core::layouter::Layouter<F, Self::Error>
+                + haloumi::core::groups::RegionsGroupHooks<F, Self::Cell, Error = Self::Error>,
+        {
+            chip.keccakf_and_absorb(layouter, &state, None)
+        }
+    }
+
+    impl NoChipArgs for Circuit {}
+
+    let circuit = extractor.make_circuit::<
+        F,
+        _,
+        Function,
+        midnight_proofs::ExtractionSupport,
+        ConstraintSystem<F>,
+    >(Circuit);
+    let lookups = crate::lookup_callbacks::sha3_lookup_callbacks();
+    Ok(extractor.extract_circuit(circuit, Some(&lookups))?)
+}
+
+#[cfg(feature = "extraction")]
+haloumi_extractor::register_harness!(
+    "keccakf/keccakf_and_absorb_none/packed/byte",
+    extract_keccakf_and_absorb_none
+);
+
+#[cfg(feature = "extraction")]
+pub fn extract_keccakf_and_absorb_some(
+    extractor: &haloumi_extractor::extractor::Extractor,
+) -> haloumi_extractor::anyhow::Result<haloumi_extractor::Output> {
+    use haloumi::circuit::{AbstractCircuit, AbstractCircuitIO, NoChipArgs};
+    use haloumi_extractor::circuit::Function;
+    use midnight_curves::Fq as F;
+    use midnight_proofs::{
+        circuit::{Cell, RegionIndex},
+        plonk::{Advice, Column, ConstraintSystem, Error, Expression, Fixed, TableColumn},
+    };
+
+    type State = <PackedChip<F> as Keccackf1600Instructions<F>>::State;
+
+    struct Circuit;
+
+    impl AbstractCircuitIO for Circuit {
+        type Chip = PackedChip<F>;
+        type Input = (State, AbsorbedBlock<F>);
+        type Output = State;
+        type Config = PackedConfig;
+        type ConfigCols = (
+            Column<Fixed>,
+            [Column<Advice>; PACKED_ADVICE_COLS],
+            [Column<Fixed>; PACKED_FIXED_COLS],
+            [TableColumn; PACKED_TABLE_COLS],
+        );
+    }
+
+    impl AbstractCircuit<F> for Circuit {
+        type Error = Error;
+        type Expression = Expression<F>;
+        type Cell = Cell;
+        type RegionIndex = RegionIndex;
+
+        fn synthesize<L>(
+            &self,
+            chip: &Self::Chip,
+            layouter: &mut haloumi::core::layouter::LayoutAdaptor<L>,
+            (state, block): Self::Input,
+            _: &mut haloumi::ir::inject::InjectedIR<RegionIndex, Self::Expression>,
+        ) -> Result<Self::Output, Self::Error>
+        where
+            L: haloumi::core::layouter::Layouter<F, Self::Error>
+                + haloumi::core::groups::RegionsGroupHooks<F, Self::Cell, Error = Self::Error>,
+        {
+            chip.keccakf_and_absorb(layouter, &state, Some(&block))
+        }
+    }
+
+    impl NoChipArgs for Circuit {}
+
+    let circuit = extractor.make_circuit::<
+        F,
+        _,
+        Function,
+        midnight_proofs::ExtractionSupport,
+        ConstraintSystem<F>,
+    >(Circuit);
+    let lookups = crate::lookup_callbacks::sha3_lookup_callbacks();
+    Ok(extractor.extract_circuit(circuit, Some(&lookups))?)
+}
+
+#[cfg(feature = "extraction")]
+haloumi_extractor::register_harness!(
+    "keccakf/keccakf_and_absorb_some/packed/byte",
+    extract_keccakf_and_absorb_some
+);
+
+#[cfg(feature = "extraction")]
+pub fn extract_squeeze(
+    extractor: &haloumi_extractor::extractor::Extractor,
+) -> haloumi_extractor::anyhow::Result<haloumi_extractor::Output> {
+    use haloumi::circuit::{AbstractCircuit, AbstractCircuitIO, NoChipArgs};
+    use haloumi_extractor::circuit::Function;
+    use midnight_curves::Fq as F;
+    use midnight_proofs::{
+        circuit::{Cell, RegionIndex},
+        plonk::{Advice, Column, ConstraintSystem, Error, Expression, Fixed, TableColumn},
+    };
+
+    type State = <PackedChip<F> as Keccackf1600Instructions<F>>::State;
+    type Digest = <PackedChip<F> as Keccackf1600Instructions<F>>::Digest;
+
+    struct Circuit;
+
+    impl AbstractCircuitIO for Circuit {
+        type Chip = PackedChip<F>;
+        type Input = State;
+        type Output = Digest;
+        type Config = PackedConfig;
+        type ConfigCols = (
+            Column<Fixed>,
+            [Column<Advice>; PACKED_ADVICE_COLS],
+            [Column<Fixed>; PACKED_FIXED_COLS],
+            [TableColumn; PACKED_TABLE_COLS],
+        );
+    }
+
+    impl AbstractCircuit<F> for Circuit {
+        type Error = Error;
+        type Expression = Expression<F>;
+        type Cell = Cell;
+        type RegionIndex = RegionIndex;
+
+        fn synthesize<L>(
+            &self,
+            chip: &Self::Chip,
+            layouter: &mut haloumi::core::layouter::LayoutAdaptor<L>,
+            state: Self::Input,
+            _: &mut haloumi::ir::inject::InjectedIR<RegionIndex, Self::Expression>,
+        ) -> Result<Self::Output, Self::Error>
+        where
+            L: haloumi::core::layouter::Layouter<F, Self::Error>
+                + haloumi::core::groups::RegionsGroupHooks<F, Self::Cell, Error = Self::Error>,
+        {
+            chip.squeeze(layouter, &state)
+        }
+    }
+
+    impl NoChipArgs for Circuit {}
+
+    let circuit = extractor.make_circuit::<
+        F,
+        _,
+        Function,
+        midnight_proofs::ExtractionSupport,
+        ConstraintSystem<F>,
+    >(Circuit);
+    let lookups = crate::lookup_callbacks::sha3_lookup_callbacks();
+    Ok(extractor.extract_circuit(circuit, Some(&lookups))?)
+}
+
+#[cfg(feature = "extraction")]
+haloumi_extractor::register_harness!("keccakf/squeeze/packed/byte", extract_squeeze);

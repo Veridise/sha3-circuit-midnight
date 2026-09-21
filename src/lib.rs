@@ -2,12 +2,13 @@
 
 mod constants;
 pub mod instructions;
+#[cfg(feature = "extraction")]
+mod lookup_callbacks;
 #[cfg(not(doctest))]
 pub mod packed_chip;
 pub mod sha3_256_gadget;
 
 #[cfg(feature = "extraction")]
-haloumi::__impl_harnesses_root_function!(haloumi_extractor, harnesses);
-
-/// Temporary location of the harnesses until we have the discovery macros.
-pub mod harness_impls {}
+pub fn harnesses() -> impl Iterator<Item = &'static haloumi_extractor::Harness> {
+    haloumi_extractor::inventory::iter::<haloumi_extractor::Harness>()
+}

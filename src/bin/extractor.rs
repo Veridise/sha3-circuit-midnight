@@ -1,3 +1,3 @@
 fn main() {
-    haloumi_extractor::ExtractorMain::run(sha3_circuit::harnesses);
+    haloumi_extractor::main_impl::ExtractorMain::run(sha3_circuit::harnesses());
 }

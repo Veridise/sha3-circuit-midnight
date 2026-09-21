@@ -195,7 +195,7 @@ impl<F: PrimeField> PackedChip<F> {
                             theta_offset + 3 * k + 1,
                         )?;
                         assigned_cs.cs[(i + KECCAK_WIDTH - 1) % KECCAK_WIDTH].copy_advice(
-                            || format!("copy c {}", i - 1),
+                            || format!("copy c {}", i),
                             &mut region,
                             self.config().lc_subconfig.advice[1],
                             theta_offset + 3 * k + 1,

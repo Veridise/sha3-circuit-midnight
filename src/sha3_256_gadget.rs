@@ -250,6 +250,109 @@ where
     }
 }
 
+#[cfg(feature = "extraction")]
+pub fn extract_sha3_digest_1(
+    extractor: &haloumi_extractor::extractor::Extractor,
+) -> haloumi_extractor::anyhow::Result<haloumi_extractor::Output> {
+    use haloumi::{
+        cell_to_expr,
+        circuit::{AbstractCircuit, AbstractCircuitIO, NoChipArgs},
+        ir::stmt::IRStmt,
+    };
+    use haloumi_extractor::circuit::Function;
+    use midnight_curves::Fq as F;
+    use midnight_proofs::{
+        circuit::{AssignedCell, Cell, RegionIndex},
+        plonk::{Advice, Column, ConstraintSystem, Expression, Fixed, TableColumn},
+    };
+    use num_bigint::BigUint;
+
+    use crate::packed_chip::{
+        PACKED_ADVICE_COLS, PACKED_FIXED_COLS, PACKED_TABLE_COLS, PackedChip, PackedConfig,
+    };
+
+    type InputByte = AssignedCell<F, F>;
+    type PackedByte = <PackedChip<F> as Keccackf1600Instructions<F>>::AssignedByte;
+    type Digest = <PackedChip<F> as Keccackf1600Instructions<F>>::Digest;
+
+    struct Circuit;
+
+    impl AbstractCircuitIO for Circuit {
+        type Chip = Sha3_256<F, PackedChip<F>>;
+        type Input = [InputByte; 1];
+        type Output = ([PackedByte; 1], Digest);
+        type Config = PackedConfig;
+        type ConfigCols = (
+            Column<Fixed>,
+            [Column<Advice>; PACKED_ADVICE_COLS],
+            [Column<Fixed>; PACKED_FIXED_COLS],
+            [TableColumn; PACKED_TABLE_COLS],
+        );
+    }
+
+    impl AbstractCircuit<F> for Circuit {
+        type Error = Error;
+        type Expression = Expression<F>;
+        type Cell = Cell;
+        type RegionIndex = RegionIndex;
+
+        fn synthesize<L>(
+            &self,
+            chip: &Self::Chip,
+            layouter: &mut haloumi::core::layouter::LayoutAdaptor<L>,
+            hash_input: Self::Input,
+            injected_ir: &mut haloumi::ir::inject::InjectedIR<RegionIndex, Self::Expression>,
+        ) -> Result<Self::Output, Self::Error>
+        where
+            L: haloumi::core::layouter::Layouter<F, Self::Error>
+                + haloumi::core::groups::RegionsGroupHooks<F, Self::Cell, Error = Self::Error>,
+        {
+            let input_cell = hash_input[0].cell();
+            injected_ir
+                .entry(input_cell.region_index)
+                .or_default()
+                .push(
+                    IRStmt::lt(cell_to_expr!(&hash_input[0], F)?, Expression::from(256))
+                        .with(input_cell.row_offset),
+                );
+
+            let input = hash_input.clone().map(|byte| {
+                byte.value().map(|value| {
+                    let value = BigUint::from_bytes_le(value.to_repr().as_ref());
+                    assert!(value < BigUint::from(256u16));
+                    value.to_bytes_le().first().copied().unwrap_or(0)
+                })
+            });
+            let (bytes, digest) = chip.digest(layouter, &input)?;
+            let bytes: [PackedByte; 1] = bytes
+                .try_into()
+                .map_err(|_| Error::Synthesis("expected one digest input byte".into()))?;
+
+            layouter.assign_region(
+                || "link inputs",
+                |mut region| region.constrain_equal(bytes[0].cell(), hash_input[0].cell()),
+            )?;
+
+            Ok((bytes, digest))
+        }
+    }
+
+    impl NoChipArgs for Circuit {}
+
+    let circuit = extractor.make_circuit::<
+        F,
+        _,
+        Function,
+        midnight_proofs::ExtractionSupport,
+        ConstraintSystem<F>,
+    >(Circuit);
+    let lookups = crate::lookup_callbacks::sha3_lookup_callbacks();
+    Ok(extractor.extract_circuit(circuit, Some(&lookups))?)
+}
+
+#[cfg(feature = "extraction")]
+haloumi_extractor::register_harness!("sha3/digest_1/sha3/byte", extract_sha3_digest_1);
+
 /// A wrapper gadget that computs a Keccak_256 digest.
 #[derive(Debug)]
 pub struct Keccak256<F, KeccakF>

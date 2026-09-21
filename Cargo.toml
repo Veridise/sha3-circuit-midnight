@@ -25,6 +25,7 @@ num-bigint = { version = "0.4" }
 rand = "0.8"
 blake2b_simd = "1.0.3"
 ff = "0.13"
+midnight-curves = { path = "../midnight-zk-current/curves", optional = true }
 
 # extraction deps 
 haloumi = { path = "../haloumi/integration", package = "haloumi-integration", optional = true }
@@ -52,4 +53,5 @@ extraction = [
   "picus/extractor-derive",
   "midnight-proofs/extraction", 
   "midnight-proofs/region-groups"
+  ,"midnight-curves"
 ]
